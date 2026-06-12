@@ -1,0 +1,11 @@
+spotipy
+lyricsgenius
+langchain
+langchain-community
+langchain-groq
+chromadb
+sentence-transformers
+rank-bm25
+streamlit
+pydantic
+python-dotenv
