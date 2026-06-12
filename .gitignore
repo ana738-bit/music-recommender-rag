@@ -1,0 +1,6 @@
+.env
+music_db/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+data/songs_catalog.json
