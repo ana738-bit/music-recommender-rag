@@ -11,3 +11,6 @@ pydantic
 python-dotenv
 pathlib
 langdetect
+langchain-core
+syncedlyrics
+langchain-text-splitters
