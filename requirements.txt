@@ -4,8 +4,10 @@ langchain
 langchain-community
 langchain-groq
 chromadb
-sentence-transformers
+fastembed
 rank-bm25
 streamlit
 pydantic
 python-dotenv
+pathlib
+langdetect
