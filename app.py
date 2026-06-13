@@ -456,6 +456,9 @@ if st.session_state.page == "home":
     elif search_clicked and user_input.strip():
         final_query = user_input.strip()
 
+    if "suggested_query" in st.session_state:
+        final_query = st.session_state.pop("suggested_query")
+
     # ── Run Pipeline ──
     if final_query:
         with st.spinner("🎵 Scanning the vibes... hang tight!"):
@@ -498,6 +501,7 @@ if st.session_state.page == "home":
         )
 
     # ── Results ──
+    # ── Results ──
     if st.session_state.pipeline_result:
         result = st.session_state.pipeline_result
 
@@ -506,11 +510,27 @@ if st.session_state.page == "home":
             <div class="error-box">
                 <h3>😕 Hmm, nothing matched that vibe</h3>
                 <p>{result['message']}</p>
-                <p style="font-size:0.85rem; margin-top:8px;">
-                    Try something like "sad songs" or "party hits"
-                </p>
             </div>
             """, unsafe_allow_html=True)
+
+            # ← YOUR ADDITION — Smart fallback suggestions (Feature 4)
+            st.markdown(
+                '<div class="section-header">💡 Try one of these instead</div>',
+                unsafe_allow_html=True
+            )
+            suggestions = [
+                "sad heartbreak songs",
+                "upbeat happy songs",
+                "calm study music",
+                "late night drive",
+                "angry breakup songs"
+            ]
+            s_cols = st.columns(len(suggestions))
+            for i, suggestion in enumerate(suggestions):
+                with s_cols[i]:
+                    if st.button(suggestion, key=f"suggest_{i}"):
+                        st.session_state["suggested_query"] = suggestion
+                        st.rerun()
 
         else:
             recs = result["recommendations"]
@@ -525,15 +545,31 @@ if st.session_state.page == "home":
             </div>
             """, unsafe_allow_html=True)
 
+            # ← YOUR ADDITION — Analytics metrics (Feature 5)
+            col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+            with col_s1:
+                st.metric("🎵 Songs Searched", "120")
+            with col_s2:
+                st.metric("🧩 Chunks Indexed", "441")
+            with col_s3:
+                st.metric("🔍 Retrieved", "10")
+            with col_s4:
+                st.metric("🎯 Final Picks", len(recs))
+
+            # ← YOUR ADDITION — Rewrite toggle (Feature 6)
+            show_rewrite = st.toggle("🔄 Show how AI interpreted your query")
+            if show_rewrite and result.get("rewritten_query"):
+                st.info(
+                    f"**AI interpreted your mood as:** "
+                    f"_{result['rewritten_query']}_"
+                )
+
             for i, song in enumerate(recs):
                 col_img, col_info = st.columns([1, 3])
 
                 with col_img:
                     if song.get("cover_image"):
-                        st.image(
-                            song["cover_image"],
-                            width=160
-                        )
+                        st.image(song["cover_image"], width=160)
                     else:
                         st.markdown("""
                         <div style="
@@ -551,21 +587,11 @@ if st.session_state.page == "home":
                 with col_info:
                     st.markdown(f"""
                     <div class="song-card">
-                        <div class="song-title">
-                            #{i+1} &nbsp; {song['title']}
-                        </div>
-                        <div class="song-artist">
-                            🎤 {song['artist']}
-                        </div>
-                        <span class="badge badge-mood">
-                            🎯 {song['mood_match']}
-                        </span>
-                        <span class="badge badge-time">
-                            ⏰ {song['best_time']}
-                        </span>
-                        <div class="song-reason">
-                            {song['reason']}
-                        </div>
+                        <div class="song-title">#{i+1} &nbsp; {song['title']}</div>
+                        <div class="song-artist">🎤 {song['artist']}</div>
+                        <span class="badge badge-mood">🎯 {song['mood_match']}</span>
+                        <span class="badge badge-time">⏰ {song['best_time']}</span>
+                        <div class="song-reason">{song['reason']}</div>
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -575,11 +601,41 @@ if st.session_state.page == "home":
                             f"https://open.spotify.com/embed/track/"
                             f"{track_id}?utm_source=generator&theme=0"
                         )
-                        st.components.v1.iframe(embed_url, height=80)
+                        st.iframe(embed_url, height=80)
                     else:
                         st.caption("⚠️ No preview available")
 
+                    hybrid_score = song.get("hybrid_score", None)
+                    rerank_rank  = song.get("rerank_rank", i + 1)
+                    energy       = song.get("energy", "")
+                    if hybrid_score:
+                        st.markdown(
+                            f"<div style='font-size:11px; color:#94a3b8; "
+                            f"margin-top:4px;'>"
+                            f"📊 Hybrid Score: {hybrid_score:.3f} &nbsp;•&nbsp; "
+                            f"⚡ Energy: {energy} &nbsp;•&nbsp; "
+                            f"🏆 Rerank: #{rerank_rank}</div>",
+                            unsafe_allow_html=True
+                        )
+
                 st.markdown("<br>", unsafe_allow_html=True)
+
+            # RAG Debug Panel
+            with st.expander("🔍 How the RAG Pipeline Found These Songs"):
+                st.markdown("""
+                **Pipeline executed in 8 steps:**
+
+                1. ✅ Query rewritten into semantic description
+                2. ✅ BM25 keyword search → 20 candidates
+                3. ✅ ChromaDB semantic search → 20 candidates
+                4. ✅ Hybrid merge (80% semantic + 20% BM25)
+                5. ✅ Top 10 passed to LLM reranker
+                6. ✅ Groq reranker selected top 3
+                7. ✅ Context + memory injected into prompt
+                8. ✅ Groq LLM generated personalized explanations
+                """)
+                st.markdown("**Raw LLM Output:**")
+                st.code(result.get("raw_llm_response", ""), language="json")
 
     # ── Sidebar ──
     with st.sidebar:
@@ -593,15 +649,28 @@ if st.session_state.page == "home":
 
         st.markdown("---")
         st.markdown("### 📊 Session Stats")
-        st.markdown(
-            f"**Queries:** {len(st.session_state.chat_history)}"
-        )
+        st.markdown(f"**Queries:** {len(st.session_state.chat_history)}")
         if st.session_state.pipeline_result:
             r = st.session_state.pipeline_result
             if r["found"]:
                 st.markdown(f"**Last vibe:** {r['query']}")
+                st.markdown(f"**Songs found:** {len(r['recommendations'])}")
+
+        # Memory timeline
+        st.markdown("---")
+        st.markdown("### 🧠 Conversation Memory")
+        memory = get_memory()
+        if memory.is_empty():
+            st.caption("No memory yet — start searching!")
+        else:
+            for idx, exchange in enumerate(memory.history, 1):
                 st.markdown(
-                    f"**Songs found:** {len(r['recommendations'])}"
+                    f"<div style='background:#eff6ff; border-radius:10px; "
+                    f"padding:8px 12px; margin:6px 0; font-size:0.8rem; "
+                    f"border-left:3px solid #2563eb;'>"
+                    f"<b>Turn {idx}:</b> {exchange['user'][:40]}..."
+                    f"</div>",
+                    unsafe_allow_html=True
                 )
 
 
@@ -651,15 +720,15 @@ elif st.session_state.page == "about":
             <div class="team-avatar">👩‍💻</div>
             <div class="team-name">Ananya Manna</div>
             <div class="team-role">
-                Data Scientist · Stage 1 & 3 Architect
+                Data Science Noob · Stage 1 & 3 Architect
             </div>
             <div class="team-desc">
-                The one who spent 3 hours debugging a Genius API token
-                only to discover it was expired. Built the entire data
-                pipeline, prompt engineering system, and this gorgeous UI
-                you're looking at right now.<br><br>
-                <b>Superpower:</b> Making APIs work through sheer
-                stubbornness 💪<br>
+                Built the complete data ingestion pipeline — collecting
+                120 songs across Spotify and syncedlyrics, cleaning
+                lyrics, and assembling rich RAG documents. Designed
+                the ChromaDB indexing strategy with 441 chunks and
+                engineered the prompt templates and conversation memory
+                system that powers every recommendation you see.<br><br>
                 <b>Guilty pleasure:</b> Lo-fi beats at 2am while
                 "studying" 🎧<br>
                 <b>Mood RN:</b> Caffeinated and dangerous ☕
@@ -671,17 +740,18 @@ elif st.session_state.page == "about":
         st.markdown("""
         <div class="team-card">
             <div class="team-avatar">👨‍💻</div>
-            <div class="team-name">Rajdeep</div>
+            <div class="team-name">Rajdeep Bose</div>
             <div class="team-role">
-                Data Scientist · Stage 2 & 4 Architect
+                Data Science Noob · Stage 2 & 4 Architect
             </div>
             <div class="team-desc">
-                The retrieval wizard who made BM25 and semantic search
-                shake hands and get along. Built the hybrid search engine,
-                LLM reranker, and the RAG chain that ties everything
-                together like duct tape on a spaceship.<br><br>
-                <b>Superpower:</b> Making vectors do exactly what he
-                wants 🧲<br>
+                Built the complete retrieval pipeline — hybrid search
+                combining BM25 keyword matching and ChromaDB semantic
+                search, fused using weighted scoring. Designed the
+                LLM-based reranker using Groq, structured output
+                parsing with Pydantic, and the RAG chain that
+                orchestrates all 8 pipeline stages from query to
+                final recommendation.<br><br>
                 <b>Guilty pleasure:</b> Hip-hop at full volume while
                 coding 🎤<br>
                 <b>Mood RN:</b> Quietly plotting world domination 🌍
