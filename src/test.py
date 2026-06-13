@@ -1,43 +1,17 @@
-import chromadb
-from chromadb.utils import embedding_functions
+import json
 
-CHROMA_DB_PATH = "./music_db"
-COLLECTION_NAME = "songs"
+# Load the catalog
+with open('data/songs_catalog.json', 'r', encoding='utf-8') as f:
+    songs = json.load(f)
 
-def inspect_vectors():
-    print("🔍 Inspecting ChromaDB Embeddings and Documents...\n")
-    
-    ef = embedding_functions.DefaultEmbeddingFunction()
-    client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-    collection = client.get_collection(name=COLLECTION_NAME, embedding_function=ef)
+# Debugging Arijit
+arijit = [s for s in songs if 'arijit' in s.get('artist', '').lower()]
+print(f'Arijit songs in catalog: {len(arijit)}')
 
-    # Fetch 2 items from the database, explicitly requesting embeddings
-    results = collection.get(
-        limit=2, 
-        include=["documents", "metadatas", "embeddings"]
-    )
+# Debugging Bollywood
+bollywood = [s for s in songs if 'bollywood' in ' '.join(s.get('tags', [])).lower()]
+print(f'Bollywood songs in catalog: {len(bollywood)}')
 
-    if not results["ids"]:
-        print("No documents found in the database.")
-        return
-
-    for i in range(len(results["ids"])):
-        doc_id = results["ids"][i]
-        meta = results["metadatas"][i]
-        doc = results["documents"][i]
-        embedding = results["embeddings"][i]
-        
-        print(f"ID: {doc_id}")
-        print(f"Title: {meta['title']} — {meta['artist']}")
-        print(f"Document Snippet: {doc[:100].replace('\n', ' ')}...")
-        
-        # Displaying the mathematical representation
-        print(f"Embedding Vector Length: {len(embedding)} dimensions")
-        
-        # Round the floats for cleaner display
-        rounded_vector = [round(val, 5) for val in embedding[:5]]
-        print(f"Embedding Preview: {rounded_vector} ...")
-        print("-" * 60)
-
-if __name__ == "__main__":
-    inspect_vectors()
+# Print first 5 matches to verify structure
+for s in bollywood[:5]:
+    print(f'  - {s.get("title")} — {s.get("artist")}')

@@ -14,4 +14,5 @@ langdetect
 langchain-core
 syncedlyrics
 langchain-text-splitters
+langchain-classic
 rank-bm25
