@@ -99,10 +99,9 @@ def is_in_catalog(semantic_results: list) -> bool:
         doc.metadata.get("_semantic_score", 0)
         for doc in semantic_results
     )
-    THRESHOLD = 0.20
+    THRESHOLD = 0.10
     print(f"   Best semantic score: {best_score:.4f} (threshold: {THRESHOLD})")
     return best_score >= THRESHOLD
-
 
 # ════════════════════════════════════════════════════════════
 # STEP 6 — Weighted Hybrid Merge
@@ -181,31 +180,26 @@ def get_top_songs(query: str) -> dict:
 
     # Check catalog relevance
     if not is_in_catalog(semantic_results):
-        print("❌ Query not relevant to catalog")
+        print("❌ Query not relevant to catalog — using fallback")
+        # FALLBACK — return best available results anyway
+        combined = weighted_merge(semantic_results, bm25_results)
+        combined = [
+            doc for doc in combined
+            if doc.metadata.get("_hybrid_score", 0) > 0
+        ]
+        final = combined[:10]
+        if final:
+            print(f"✅ Fallback found {len(final)} songs")
+            return {
+                "found":   True,
+                "message": "",
+                "results": final
+            }
         return {
             "found":   False,
-            "message": f"Sorry! We couldn't find songs matching '{query}' in our database right now. Try a different mood or genre!",
+            "message": f"Sorry, we couldn't find songs matching '{query}'. Try a different mood!",
             "results": []
         }
-
-    # Merge with weights
-    combined = weighted_merge(semantic_results, bm25_results)
-
-    # Filter out negative scores — irrelevant results
-    combined = [
-        doc for doc in combined
-        if doc.metadata.get("_hybrid_score", 0) > 0
-    ]
-
-    final = combined[:10]
-    print(f"✅ Found {len(final)} songs")
-
-    return {
-        "found":   True,
-        "message": "",
-        "results": final
-    }
-
 
 # ════════════════════════════════════════════════════════════
 # STEP 9 — Verify
