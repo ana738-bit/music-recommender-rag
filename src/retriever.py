@@ -162,45 +162,42 @@ def _initialize():
 # Called by chain.py — returns dict with found + results
 # ════════════════════════════════════════════════════════════
 def get_top_songs(query: str) -> dict:
-    """
-    Hybrid search: 80% semantic + 20% BM25.
-    Returns dict:
-    {
-        "found":   True/False,
-        "message": error message if not found,
-        "results": list of top 10 LangChain Documents
-    }
-    """
-    _initialize()
+    try:
+        _initialize()
 
-    print(f"\n🔍 Searching for: '{query}'")
+        print(f"\n🔍 Searching for: '{query}'")
 
-    semantic_results = _semantic_retriever.get_relevant_documents(query)
-    bm25_results     = _bm25_retriever.invoke(query)
+        semantic_results = _semantic_retriever.get_relevant_documents(query)
+        bm25_results     = _bm25_retriever.invoke(query)
 
-    # Check catalog relevance
-    if not is_in_catalog(semantic_results):
-        print("❌ Query not relevant to catalog — using fallback")
-        # FALLBACK — return best available results anyway
+        # Always merge and return results regardless of threshold
         combined = weighted_merge(semantic_results, bm25_results)
         combined = [
             doc for doc in combined
             if doc.metadata.get("_hybrid_score", 0) > 0
         ]
+
         final = combined[:10]
-        if final:
-            print(f"✅ Fallback found {len(final)} songs")
-            return {
-                "found":   True,
-                "message": "",
-                "results": final
-            }
+
+        if not final:
+            # Last resort — return top semantic results directly
+            final = semantic_results[:10]
+
+        print(f"✅ Found {len(final)} songs")
+
         return {
-            "found":   False,
-            "message": f"Sorry, we couldn't find songs matching '{query}'. Try a different mood!",
-            "results": []
+            "found":   True,
+            "message": "",
+            "results": final
         }
 
+    except Exception as e:
+        print(f"❌ Retriever error: {e}")
+        return {
+            "found":   False,
+            "message": f"Search error: {str(e)}",
+            "results": []
+        }
 # ════════════════════════════════════════════════════════════
 # STEP 9 — Verify
 # ════════════════════════════════════════════════════════════
