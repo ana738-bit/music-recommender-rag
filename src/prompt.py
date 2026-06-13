@@ -7,9 +7,10 @@ load_dotenv(dotenv_path=env_path)
 
 
 # ─── Query Rewriter Prompt ────────────────────────────────
-REWRITE_PROMPT_TEMPLATE = """You are a music expert. Rewrite the user query into a detailed search query for finding matching songs.
-Include mood, energy, tempo, genre, and emotion keywords.
-Keep it under 30 words. Return only the rewritten query, nothing else.
+REWRITE_PROMPT_TEMPLATE = """You are a music expert. Rewrite the user query as a natural language description of the kind of song someone wants — describing mood, feeling, and vibe in plain sentences.
+
+Do NOT use technical formatting like "Tempo:", "Genre:", "BPM", key-value pairs, or boolean operators (AND/OR).
+Write it as if describing the song to a friend. Keep it under 30 words.
 
 User Query: {query}
 Rewritten Query:"""

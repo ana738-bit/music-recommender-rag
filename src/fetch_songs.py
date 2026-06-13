@@ -61,6 +61,7 @@ def fetch_spotify_songs(queries: list, max_songs: int = 120) -> list:
                         "album":        track["album"]["name"],
                         "preview_url":  track.get("preview_url", "") or "",
                         "cover_image":  track["album"]["images"][0]["url"] if track["album"]["images"] else "",
+                        "track_id":     track.get("id", ""),
                         "mood":         mood_data["mood"],
                         "energy":       mood_data["energy"],
                         "danceability": mood_data["danceability"],
