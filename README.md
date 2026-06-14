@@ -243,7 +243,8 @@ Built the complete retrieval pipeline — hybrid search combining BM25 keyword m
 
 ## 🎓 About This Project
 
-Built as a Semester 4 project at MAKAUT. We wanted to build something that used real RAG, real LLMs, and real APIs — not another CRUD app. VibeCheck is the result.
+VibeCheck is a personal project built by *Ananya Manna* and *Rajdeep Bose* as a team. We wanted to build something that used real RAG, real LLMs, and real APIs. VibeCheck is the result.
+
 
 ---
 
