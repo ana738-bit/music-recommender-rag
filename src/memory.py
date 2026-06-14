@@ -1,12 +1,12 @@
 from pathlib import Path
 from dotenv import load_dotenv
 
-# ─── Load .env ────────────────────────────────────────────
+# Load .env 
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 
-# ─── Simple Memory Class ──────────────────────────────────
+# Simple Memory Class 
 class ConversationMemory:
     """
     Simple conversation memory that stores
@@ -53,7 +53,7 @@ class ConversationMemory:
         return len(self.history) == 0
 
 
-# ─── Global Memory Instance ───────────────────────────────
+# Global Memory Instance
 # Single instance used across the whole app session
 _memory_instance = None
 
@@ -78,7 +78,7 @@ def reset_memory():
     print(" Memory reset")
 
 
-# ─── Test ─────────────────────────────────────────────────
+# Test 
 if __name__ == "__main__":
     print(" Testing memory.py...\n")
 

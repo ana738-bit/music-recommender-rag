@@ -4,7 +4,7 @@ sys.path.append(str(Path(__file__).resolve().parent))
 
 from chain import get_recommendations
 
-print("🚀 Testing full pipeline...\n")
+print(" Testing full pipeline...\n")
 
 test_queries = [
     "sad songs for rainy night",

@@ -11,7 +11,7 @@ from memory import get_memory, reset_memory
 # PAGE CONFIG
 # ════════════════════════════════════════════════════════════
 st.set_page_config(
-    page_title="🎵 VibeCheck — Music Mood Recommender",
+    page_title=" VibeCheck — Music Mood Recommender",
     page_icon="🎵",
     layout="wide",
     initial_sidebar_state="collapsed"

@@ -1,12 +1,12 @@
 from pathlib import Path
 from dotenv import load_dotenv
 
-# ─── Load .env ────────────────────────────────────────────
+# Load .env 
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 
-# ─── Query Rewriter Prompt ────────────────────────────────
+# Query Rewriter Prompt
 REWRITE_PROMPT_TEMPLATE = """You are a music expert. Rewrite the user query as a natural language description of the kind of song someone wants — describing mood, feeling, and vibe in plain sentences.
 
 Do NOT use technical formatting like "Tempo:", "Genre:", "BPM", key-value pairs, or boolean operators (AND/OR).
@@ -16,7 +16,7 @@ User Query: {query}
 Rewritten Query:"""
 
 
-# ─── System Prompt ────────────────────────────────────────
+# System Prompt 
 SYSTEM_PROMPT = """You are an expert music DJ and mood-based song recommender.
 Your job is to recommend songs that perfectly match the user's mood, feeling, or situation.
 
@@ -32,7 +32,7 @@ Be warm, conversational and enthusiastic like a real DJ.
 Keep each song explanation to 2 sentences maximum."""
 
 
-# ─── Output Format Prompt ─────────────────────────────────
+# Output Format Prompt 
 OUTPUT_FORMAT = """Return ONLY a valid JSON array. No extra text before or after.
 
 [
@@ -51,7 +51,7 @@ Rules:
 - No markdown, no explanation, only the JSON array"""
 
 
-# ─── Build Context String from Reranked Docs ──────────────
+# Build Context String from Reranked Docs 
 def build_context(docs: list) -> str:
     """
     Converts list of reranked LangChain Documents
@@ -82,7 +82,7 @@ Content: {snippet}""")
     return "\n\n".join(context_parts)
 
 
-# ─── Build Final Prompt ───────────────────────────────────
+# Build Final Prompt
 def build_final_prompt(query: str, context: str, history: str) -> str:
     """
     Integration contract function.
@@ -115,7 +115,7 @@ User Query: {query}
     return prompt.strip()
 
 
-# ─── Get Rewrite Prompt ───────────────────────────────────
+# Get Rewrite Prompt 
 def get_rewrite_prompt(query: str) -> str:
     """
     Returns filled rewrite prompt for query expansion.
@@ -124,7 +124,7 @@ def get_rewrite_prompt(query: str) -> str:
     return REWRITE_PROMPT_TEMPLATE.format(query=query)
 
 
-# ─── Test ─────────────────────────────────────────────────
+# Test 
 if __name__ == "__main__":
     from langchain_core.documents import Document
 

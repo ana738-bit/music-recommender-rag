@@ -22,7 +22,7 @@ def clean_existing_catalog(path: Path = CATALOG_PATH):
     with open(path, "r", encoding="utf-8") as f:
         songs = json.load(f)
 
-    print(f"📂 Loaded {len(songs)} songs from existing catalog")
+    print(f" Loaded {len(songs)} songs from existing catalog")
 
     english_only = []
     removed = []
@@ -34,16 +34,16 @@ def clean_existing_catalog(path: Path = CATALOG_PATH):
             continue
         english_only.append(song)
 
-    print(f"\n🚫 Removed {len(removed)} non-English / no-lyrics songs:")
+    print(f"\n Removed {len(removed)} non-English / no-lyrics songs:")
     for t in removed:
         print(f"   - {t}")
 
-    print(f"\n✅ {len(english_only)} songs remain")
+    print(f"\n {len(english_only)} songs remain")
 
     with open(path, "w", encoding="utf-8") as f:
         json.dump(english_only, f, indent=2, ensure_ascii=False)
 
-    print(f"💾 Saved cleaned catalog back to {path}")
+    print(f" Saved cleaned catalog back to {path}")
     return english_only
 
 
@@ -52,7 +52,7 @@ def print_catalog(path: Path = CATALOG_PATH):
         songs = json.load(f)
 
     print(f"\n{'='*60}")
-    print(f"📊 CATALOG SUMMARY — {len(songs)} songs")
+    print(f" CATALOG SUMMARY — {len(songs)} songs")
     print(f"{'='*60}\n")
 
     for i, song in enumerate(songs, 1):
@@ -63,7 +63,7 @@ def print_catalog(path: Path = CATALOG_PATH):
         print()
 
     print(f"{'='*60}")
-    print(f"✅ Total verified songs: {len(songs)}")
+    print(f" Total verified songs: {len(songs)}")
     print(f"{'='*60}")
 
 
