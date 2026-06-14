@@ -1,15 +1,11 @@
-# ════════════════════════════════════════════════════════════
-# output.py
-# Parses raw LLM JSON output into validated SongRecommendation objects
-# ════════════════════════════════════════════════════════════
-
+# import libraries
 import json
 import re
 from typing import List, Optional
 from pydantic import BaseModel, Field, ValidationError
 
 
-# ─── Pydantic Schema ───────────────────────────────────────
+# Define the schema using the pydantic
 class SongRecommendation(BaseModel):
     title:      str = Field(description="Exact song title")
     artist:     str = Field(description="Exact artist name")
@@ -17,13 +13,13 @@ class SongRecommendation(BaseModel):
     mood_match: str = Field(description="The mood this song captures")
     best_time:  str = Field(description="Best situation or time to listen")
 
-    # Optional fields filled in later by chain.py from retrieved metadata
+    # Optional
     cover_image: Optional[str] = None
     track_id:    Optional[str] = None
     energy:      Optional[str] = None
 
 
-# ─── Step 1 — Extract JSON array from raw LLM text ────────
+# Step1: Extract the json array from the raw text
 def extract_json_array(raw_text: str) -> str:
     """
     LLMs sometimes wrap JSON in markdown code blocks or add
@@ -36,7 +32,7 @@ def extract_json_array(raw_text: str) -> str:
     text = re.sub(r"```\s*", "", text)
 
     start = text.find("[")
-    end   = text.rfind("]") + 1
+    end = text.rfind("]") + 1
 
     if start == -1 or end == 0:
         raise ValueError("No JSON array found in LLM response")
@@ -44,7 +40,7 @@ def extract_json_array(raw_text: str) -> str:
     return text[start:end]
 
 
-# ─── Step 2 — Parse + Validate with Pydantic ──────────────
+# Step2: Parse
 def parse_recommendations(raw_text: str) -> List[SongRecommendation]:
     """
     Main function — converts raw LLM string output into a list
@@ -70,14 +66,14 @@ def parse_recommendations(raw_text: str) -> List[SongRecommendation]:
             rec = SongRecommendation(**item)
             recommendations.append(rec)
         except ValidationError as e:
-            print(f"⚠️  Skipping song {i} — validation error: {e}")
+            print(f"Skipping song {i} — validation error: {e}")
             continue
 
-    print(f"✅ Parsed {len(recommendations)} valid recommendations")
+    print(f"Parsed {len(recommendations)} valid recommendations")
     return recommendations
 
 
-# ─── Step 3 — Enrich Recommendations with Catalog Metadata ─
+# Step3: Enritched recommendation with catalog
 def enrich_recommendations(
     recommendations: List[SongRecommendation],
     reranked_docs: list
@@ -106,23 +102,23 @@ def enrich_recommendations(
         meta = lookup.get(rec.title.strip().lower())
         if meta:
             rec.cover_image = meta.get("cover_image")
-            rec.track_id    = meta.get("track_id")
-            rec.energy      = meta.get("energy")
+            rec.track_id = meta.get("track_id")
+            rec.energy = meta.get("energy")
         else:
-            print(f"⚠️  No catalog match found for '{rec.title}' — leaving extra fields empty")
+            print(f"No catalog match found for '{rec.title}' — leaving extra fields empty")
 
     return recommendations
 
 
-# ─── Step 4 — Convert to dict (for Streamlit / JSON response) ─
+# Step4: Recommendation to dictionaries
 def recommendations_to_dicts(recommendations: List[SongRecommendation]) -> List[dict]:
     """Converts list of SongRecommendation to list of plain dicts."""
     return [rec.model_dump() for rec in recommendations]
 
 
-# ─── Test ───────────────────────────────────────────────────
+# Testing
 if __name__ == "__main__":
-    print("🚀 Testing output.py...\n")
+    print("Testing output.py...\n")
 
     # Simulate a clean LLM response
     sample_response = """[
@@ -198,4 +194,4 @@ Hope you enjoy!"""
     for r in enriched:
         print(f"  - {r.title} | cover: {r.cover_image} | track_id: {r.track_id}")
 
-    print("\n✅ output.py complete!")
+    print("\noutput.py complete!")
