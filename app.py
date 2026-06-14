@@ -11,7 +11,7 @@ from memory import get_memory, reset_memory
 # PAGE CONFIG
 # ════════════════════════════════════════════════════════════
 st.set_page_config(
-    page_title="🎵 VibeCheck — Music Mood Recommender",
+    page_title=" VibeCheck — Music Mood Recommender",
     page_icon="🎵",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -411,16 +411,16 @@ if st.session_state.page == "home":
     )
 
     mood_chips = {
-        "😢 Sad":         "sad heartbreak songs",
-        "😊 Happy":       "happy upbeat feel good songs",
-        "💪 Workout":     "motivational workout songs",
-        "🌧️ Rainy Day":  "rainy day chill music",
+        "😢 Sad":         "sad heartbreak melancholic songs",
+        "😊 Happy":       "happy upbeat feel good pop hits",
+        "💪 Workout":     "motivational energetic workout songs",
+        "🌧️ Rainy Day":  "rainy day chill melancholic music",
         "❤️ Romantic":    "romantic love songs",
-        "🌙 Late Night":  "late night drive songs",
-        "😤 Angry":       "angry breakup songs",
-        "📚 Focus":       "focus study calm music",
-        "🎉 Party":       "party dance hits",
-        "🎸 Indie":       "indie alternative rock"
+        "🌙 Late Night":  "late night drive nostalgic songs",
+        "😤 Angry":       "angry breakup energetic songs",
+        "📚 Focus":       "focus study calm ambient music",
+        "🎉 Party":       "party dance hits happy upbeat",
+        "🎸 Indie":       "indie alternative rock nostalgic"
     }
 
     chip_query = None

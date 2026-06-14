@@ -7,17 +7,17 @@ import syncedlyrics
 from dotenv import load_dotenv
 from pathlib import Path
 
-# ─── Load .env ────────────────────────────────────────────
+# Load .env 
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# ─── Initialize Spotify ───────────────────────────────────
+# Initialize Spotify 
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
     client_id=os.getenv("SPOTIFY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIFY_CLIENT_SECRET")
 ))
 
-# ─── Step 1: Fetch songs from Spotify ─────────────────────
+# Step 1: Fetch songs from Spotify 
 def fetch_spotify_songs(queries: list, max_songs: int = 120) -> list:
     songs = []
 
@@ -70,20 +70,20 @@ def fetch_spotify_songs(queries: list, max_songs: int = 120) -> list:
                         "tags":         [mood_data["mood"].lower(), query]
                     }
                     songs.append(song)
-                    print(f"✅ Fetched: {song['title']} — {song['artist']} [{mood_data['mood']}]")
+                    print(f" Fetched: {song['title']} — {song['artist']} [{mood_data['mood']}]")
 
                 except Exception as e:
-                    print(f"⚠️ Skipped {track.get('name', '?')}: {e}")
+                    print(f" Skipped {track.get('name', '?')}: {e}")
                     continue
 
         except Exception as e:
-            print(f"⚠️ Search failed for '{query}': {e}")
+            print(f" Search failed for '{query}': {e}")
             continue
 
     return songs
 
 
-# ─── Step 2: Fetch lyrics using syncedlyrics (no API key) ──
+# Step 2: Fetch lyrics using syncedlyrics
 def fetch_lyrics(songs: list) -> list:
     for song in songs:
         try:
@@ -101,19 +101,19 @@ def fetch_lyrics(songs: list) -> list:
                         clean_lines.append(line)
 
                 song["lyrics"] = "\n".join(clean_lines[:50])
-                print(f"🎵 Lyrics fetched: {song['title']}")
+                print(f" Lyrics fetched: {song['title']}")
             else:
                 song["lyrics"] = ""
-                print(f"⚠️ No lyrics found: {song['title']}")
+                print(f" No lyrics found: {song['title']}")
 
         except Exception as e:
             song["lyrics"] = ""
-            print(f"⚠️ Skipped {song['title']}: {e}")
+            print(f" Skipped {song['title']}: {e}")
 
     return songs
 
 
-# ─── Step 3: Build RAG document ───────────────────────────
+# Step 3: Build RAG document 
 def build_rag_document(song: dict) -> str:
     return f"""
 Song: {song['title']}
@@ -130,21 +130,21 @@ Lyrics:
 """.strip()
 
 
-# ─── Step 4: Save to JSON ─────────────────────────────────
+# Step 4: Save to JSON 
 def save_songs(songs: list, path: str = "data/songs_catalog.json"):
     os.makedirs("data", exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(songs, f, indent=2, ensure_ascii=False)
-    print(f"\n💾 Saved {len(songs)} songs to {path}")
+    print(f"\n Saved {len(songs)} songs to {path}")
 
 
-# ─── Step 5: Print catalog summary ───────────────────────
+# Step 5: Print catalog summary 
 def print_catalog(path: str = "data/songs_catalog.json"):
     with open(path, "r", encoding="utf-8") as f:
         songs = json.load(f)
 
     print(f"\n{'='*60}")
-    print(f"📊 CATALOG SUMMARY — {len(songs)} songs")
+    print(f" CATALOG SUMMARY — {len(songs)} songs")
     print(f"{'='*60}\n")
 
     for i, song in enumerate(songs, 1):
@@ -155,11 +155,11 @@ def print_catalog(path: str = "data/songs_catalog.json"):
         print()
 
     print(f"{'='*60}")
-    print(f"✅ Total songs saved: {len(songs)}")
+    print(f" Total songs saved: {len(songs)}")
     print(f"{'='*60}")
 
 
-# ─── Main ─────────────────────────────────────────────────
+# Main 
 if __name__ == "__main__":
 
     SEARCH_QUERIES = [
@@ -182,19 +182,19 @@ if __name__ == "__main__":
 
     print("🎵 Fetching songs from Spotify...")
     songs = fetch_spotify_songs(SEARCH_QUERIES, max_songs=120)
-    print(f"\n✅ Got {len(songs)} songs from Spotify")
+    print(f"\n Got {len(songs)} songs from Spotify")
 
-    print("\n📝 Fetching lyrics via syncedlyrics...")
+    print("\n Fetching lyrics via syncedlyrics...")
     songs = fetch_lyrics(songs)
 
     lyrics_count = sum(1 for s in songs if s['lyrics'])
-    print(f"\n✅ {lyrics_count}/{len(songs)} songs have lyrics")
+    print(f"\n {lyrics_count}/{len(songs)} songs have lyrics")
 
-    print("\n📄 Building RAG documents...")
+    print("\n Building RAG documents...")
     for song in songs:
         song["rag_document"] = build_rag_document(song)
 
     save_songs(songs)
-    print("\n🎉 fetch_songs.py complete!")
+    print("\n fetch_songs.py complete!")
 
     print_catalog()
