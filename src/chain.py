@@ -59,7 +59,7 @@ def rewrite_query(query: str) -> str:
         return rewritten
 
     except Exception as e:
-        print(f"⚠️  Query rewrite failed: {e} — using original query")
+        print(f"Query rewrite failed: {e} — using original query")
         return query
 
 
