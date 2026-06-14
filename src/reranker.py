@@ -1,3 +1,4 @@
+# Import libraries
 import os
 import json
 from pathlib import Path
@@ -5,15 +6,12 @@ from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.documents import Document
 
-# ─── Load .env ────────────────────────────────────────────
+# Load env
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 1 — Load Groq LLM
-# Already in requirements — no new install needed
-# ════════════════════════════════════════════════════════════
+# Step1:load the LLM model
 def load_reranker():
     print("Loading Groq LLM reranker...")
     llm = ChatGroq(
@@ -25,11 +23,7 @@ def load_reranker():
     return llm
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 2 — Build Reranking Prompt
-# Sends query + all song summaries to LLM
-# Asks LLM to rank by relevance and return JSON
-# ════════════════════════════════════════════════════════════
+# Step2: Define the reranker
 def build_rerank_prompt(query: str, docs: list) -> str:
     """
     Builds a prompt asking LLM to rank songs by relevance.
@@ -37,12 +31,12 @@ def build_rerank_prompt(query: str, docs: list) -> str:
     """
     songs_text = ""
     for i, doc in enumerate(docs):
-        title   = doc.metadata.get("title",   "Unknown")
-        artist  = doc.metadata.get("artist",  "Unknown")
-        mood    = doc.metadata.get("mood",    "Unknown")
-        energy  = doc.metadata.get("energy",  "Unknown")
-        tags    = doc.metadata.get("tags",    "")
-        # Short lyrics snippet for context
+        title = doc.metadata.get("title",   "Unknown")
+        artist = doc.metadata.get("artist",  "Unknown")
+        mood = doc.metadata.get("mood",    "Unknown")
+        energy = doc.metadata.get("energy",  "Unknown")
+        tags = doc.metadata.get("tags",    "")
+        # Context for short lyrics
         content = doc.page_content[:200].replace("\n", " ")
 
         songs_text += f"""
@@ -75,29 +69,24 @@ Your ranking:"""
     return prompt
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 3 — Parse LLM Response
-# LLM returns JSON array of indices
-# We convert indices back to Document objects
-# ════════════════════════════════════════════════════════════
+# Step3:Parse the LLM  response
 def parse_ranking(response_text: str, docs: list) -> list:
     """
     Parses LLM JSON response into ranked Document list.
     Falls back to original order if parsing fails.
     """
     try:
-        # Clean response — remove any extra text around JSON
+        # Clean the response
         text = response_text.strip()
 
-        # Find JSON array in response
+        # Find the json array from the response
         start = text.find("[")
-        end   = text.rfind("]") + 1
-
+        end = text.rfind("]") + 1
         if start == -1 or end == 0:
             raise ValueError("No JSON array found in response")
 
         json_str = text[start:end]
-        indices  = json.loads(json_str)
+        indices = json.loads(json_str)
 
         # Validate indices
         valid_indices = [
@@ -113,24 +102,22 @@ def parse_ranking(response_text: str, docs: list) -> list:
         for rank, idx in enumerate(valid_indices):
             doc = docs[idx]
             doc.metadata["_rerank_score"] = len(valid_indices) - rank
-            doc.metadata["_rerank_rank"]  = rank + 1
+            doc.metadata["_rerank_rank"] = rank + 1
             ranked.append(doc)
 
         print(f"   Parsed {len(ranked)} ranked songs from LLM response")
         return ranked
 
     except Exception as e:
-        print(f"   ⚠️  Parse failed: {e} — using original order")
-        # Fallback — return original order with dummy scores
+        print(f" Parse failed: {e} — using original order")
+        # Fallback(return to the original order with a dummy score)
         for rank, doc in enumerate(docs):
             doc.metadata["_rerank_score"] = len(docs) - rank
             doc.metadata["_rerank_rank"]  = rank + 1
         return docs
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 4 — Global Model (load once, reuse)
-# ════════════════════════════════════════════════════════════
+# Step4: Global model
 _reranker_llm = None
 
 
@@ -141,12 +128,7 @@ def _initialize():
     _reranker_llm = load_reranker()
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 5 — Main Integration Function
-# Called by chain.py
-# Input:  query + 10 docs from retriever
-# Output: top 3 docs ranked by LLM
-# ════════════════════════════════════════════════════════════
+# Step5: Integration
 def rerank(query: str, docs: list, top_n: int = 3) -> list:
     """
     LLM-based reranking using Groq.
@@ -163,17 +145,17 @@ def rerank(query: str, docs: list, top_n: int = 3) -> list:
     _initialize()
 
     if not docs:
-        print("⚠️  No documents to rerank")
+        print("No documents to rerank")
         return []
 
-    print(f"\n🎯 Reranking {len(docs)} songs for: '{query}'")
+    print(f"\nReranking {len(docs)} songs for: '{query}'")
 
     # Build prompt
     prompt = build_rerank_prompt(query, docs)
 
     # Ask Groq to rank
     print("   Asking Groq LLM to rank songs...")
-    response     = _reranker_llm.invoke(prompt)
+    response = _reranker_llm.invoke(prompt)
     response_text = response.content
 
     print(f"   LLM response: {response_text.strip()[:80]}...")
@@ -185,27 +167,24 @@ def rerank(query: str, docs: list, top_n: int = 3) -> list:
     final = ranked_docs[:top_n]
 
     # Show results
-    print(f"✅ Reranked — top {len(final)} selected:")
+    print(f"Reranked — top {len(final)} selected:")
     for i, doc in enumerate(final, 1):
-        title   = doc.metadata.get("title",         "Unknown")
-        artist  = doc.metadata.get("artist",        "Unknown")
-        mood    = doc.metadata.get("mood",          "Unknown")
-        rscore  = doc.metadata.get("_rerank_score", 0)
+        title = doc.metadata.get("title",         "Unknown")
+        artist = doc.metadata.get("artist",        "Unknown")
+        mood = doc.metadata.get("mood",          "Unknown")
+        rscore = doc.metadata.get("_rerank_score", 0)
         print(f"   {i}. {title} — {artist} | {mood} | rerank score: {rscore}")
 
     return final
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 6 — Verify Full Pipeline
-# retriever → reranker together
-# ════════════════════════════════════════════════════════════
+# Step6: Verify full pipeline
 if __name__ == "__main__":
     import sys
     sys.path.append(str(Path(__file__).resolve().parent))
     from retriever import get_top_songs
 
-    print("🚀 Testing reranker.py...\n")
+    print("Testing reranker.py...\n")
 
     test_queries = [
         "sad songs for a rainy night",
@@ -222,7 +201,7 @@ if __name__ == "__main__":
         retriever_response = get_top_songs(query)
 
         if not retriever_response["found"]:
-            print(f"⚠️  {retriever_response['message']}")
+            print(f"{retriever_response['message']}")
             continue
 
         retriever_docs = retriever_response["results"]
@@ -232,7 +211,7 @@ if __name__ == "__main__":
         reranked_docs = rerank(query, retriever_docs, top_n=5)
 
         # Before vs After comparison
-        print(f"\n📊 Before vs After Reranking:")
+        print(f"\nBefore vs After Reranking:")
         print(f"{'Retriever Order':<35} {'Reranker Order':<35}")
         print("-" * 70)
 
@@ -251,4 +230,4 @@ if __name__ == "__main__":
             changed = "←" if before != after else ""
             print(f"{i}. {before:<33} {i}. {after:<33} {changed}")
 
-    print("\n\n✅ reranker.py verification complete!")
+    print("\n\neranker.py verification complete!")

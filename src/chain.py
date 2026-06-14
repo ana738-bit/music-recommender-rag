@@ -1,29 +1,21 @@
-# ════════════════════════════════════════════════════════════
-# chain.py
-# The glue — connects retriever, reranker, prompt, memory, LLM, output
-# ════════════════════════════════════════════════════════════
-
+# Imports
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
-
 from retriever import get_top_songs
 from reranker import rerank
 from prompt import get_rewrite_prompt, build_context, build_final_prompt
 from memory import get_memory
 from output import parse_recommendations, enrich_recommendations, recommendations_to_dicts
 
-# ─── Load .env ────────────────────────────────────────────
+# Load env
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 1 — Load Main Generation LLM (separate from reranker)
-# ════════════════════════════════════════════════════════════
+# setp1: Load main generation LLM
 _chain_llm = None
-
 
 def _get_chain_llm():
     global _chain_llm
@@ -38,9 +30,7 @@ def _get_chain_llm():
     return _chain_llm
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 2 — Query Rewriting (optional enrichment step)
-# ════════════════════════════════════════════════════════════
+# setp2: Query rewritting
 def rewrite_query(query: str) -> str:
     """
     Expands user query into a richer search query using LLM.
@@ -59,14 +49,11 @@ def rewrite_query(query: str) -> str:
         return rewritten
 
     except Exception as e:
-        print(f"⚠️  Query rewrite failed: {e} — using original query")
+        print(f"Query rewrite failed: {e} — using original query")
         return query
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 3 — Main Pipeline Function
-# Called by app.py
-# ════════════════════════════════════════════════════════════
+# Step3: Main pipeline rub
 def run_pipeline(query: str, use_memory: bool = True, use_rewrite: bool = True) -> dict:
     """
     Full RAG pipeline:
@@ -92,7 +79,7 @@ def run_pipeline(query: str, use_memory: bool = True, use_rewrite: bool = True) 
     print(f"🎵 PIPELINE START — Query: '{query}'")
     print(f"{'='*60}")
 
-    # ─── Step 1: Query Rewriting ───────────────────────────
+    # Step 1: Query Rewriting
     if use_rewrite:
         print("\n[1/8] Rewriting query...")
         search_query = rewrite_query(query)
@@ -100,12 +87,12 @@ def run_pipeline(query: str, use_memory: bool = True, use_rewrite: bool = True) 
         search_query = query
         print("\n[1/8] Skipping query rewrite")
 
-    # ─── Step 2: Retrieval ──────────────────────────────────
+    # Step 2: Retrieval
     print("\n[2/8] Retrieving candidates (hybrid search)...")
     retriever_response = get_top_songs(search_query)
 
     if not retriever_response["found"]:
-        print(f"❌ {retriever_response['message']}")
+        print(f"{retriever_response['message']}")
         return {
             "found":           False,
             "message":         retriever_response["message"],
@@ -118,7 +105,7 @@ def run_pipeline(query: str, use_memory: bool = True, use_rewrite: bool = True) 
     retrieved_docs = retriever_response["results"]
     print(f"   Retrieved {len(retrieved_docs)} candidates")
 
-    # ─── Step 3: Reranking ──────────────────────────────────
+    # Step 3: Reranking
     print("\n[3/8] Reranking with LLM...")
     reranked_docs = rerank(search_query, retrieved_docs, top_n=3)
 
@@ -132,21 +119,21 @@ def run_pipeline(query: str, use_memory: bool = True, use_rewrite: bool = True) 
             "raw_llm_response": ""
         }
 
-    # ─── Step 4: Build Context ──────────────────────────────
+    # Step 4: Build Context 
     print("\n[4/8] Building context from reranked songs...")
     context = build_context(reranked_docs)
 
-    # ─── Step 5: Get Memory ──────────────────────────────────
+    # Step 5: Get Memory
     print("\n[5/8] Loading conversation memory...")
     memory = get_memory()
     history = memory.format() if use_memory else "No previous conversation."
     print(f"   History: {history[:80]}...")
 
-    # ─── Step 6: Build Final Prompt ─────────────────────────
+    # Step 6: Build Final Prompt
     print("\n[6/8] Building final prompt...")
     final_prompt = build_final_prompt(query=query, context=context, history=history)
 
-    # ─── Step 7: Call Groq LLM ───────────────────────────────
+    # Step 7: Call Groq LLM 
     print("\n[7/8] Calling Groq LLM for recommendations...")
     try:
         llm = _get_chain_llm()
@@ -164,7 +151,7 @@ def run_pipeline(query: str, use_memory: bool = True, use_rewrite: bool = True) 
             "raw_llm_response": ""
         }
 
-    # ─── Step 8: Parse + Enrich Output ──────────────────────
+    # Step 8: Parse + Enrich Output 
     print("\n[8/8] Parsing and enriching output...")
     recommendations = parse_recommendations(raw_text)
 
@@ -181,13 +168,13 @@ def run_pipeline(query: str, use_memory: bool = True, use_rewrite: bool = True) 
     recommendations = enrich_recommendations(recommendations, reranked_docs)
     recommendations_dicts = recommendations_to_dicts(recommendations)
 
-    # ─── Save to Memory ──────────────────────────────────────
+    # Save to Memory
     if use_memory:
         summary = ", ".join([r["title"] for r in recommendations_dicts])
         memory.save(query, f"Recommended: {summary}")
 
     print(f"\n{'='*60}")
-    print(f"✅ PIPELINE COMPLETE — {len(recommendations_dicts)} recommendations")
+    print(f"PIPELINE COMPLETE — {len(recommendations_dicts)} recommendations")
     print(f"{'='*60}\n")
 
     return {
@@ -200,9 +187,7 @@ def run_pipeline(query: str, use_memory: bool = True, use_rewrite: bool = True) 
     }
 
 
-# ════════════════════════════════════════════════════════════
-# Test
-# ════════════════════════════════════════════════════════════
+#Test
 if __name__ == "__main__":
     print("🚀 Testing chain.py — Full Pipeline\n")
 
@@ -233,4 +218,4 @@ if __name__ == "__main__":
             print(f"     Track ID: {rec.get('track_id')}")
         print(f"{'#'*60}")
 
-    print("\n\n✅ chain.py complete!")
+    print("\n\nchain.py complete!")

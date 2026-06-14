@@ -1,28 +1,26 @@
+#import libraries
+
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-
 import chromadb
 from chromadb.utils import embedding_functions
-
 from langchain_core.documents import Document
 from langchain_community.retrievers import BM25Retriever
 
-# ─── Load .env ────────────────────────────────────────────
+# Load env
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# ─── Paths ────────────────────────────────────────────────
-CHROMA_DB_PATH  = "./music_db"
+# define the paths
+CHROMA_DB_PATH = "./music_db"
 COLLECTION_NAME = "songs"
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 1 — Connect to ChromaDB
-# ════════════════════════════════════════════════════════════
+# step1:connect to chromaDB
 def get_chroma_collection():
     print("Connecting to ChromaDB...")
-    ef     = embedding_functions.DefaultEmbeddingFunction()
+    ef = embedding_functions.DefaultEmbeddingFunction()
     client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
     collection = client.get_collection(
         name=COLLECTION_NAME,
@@ -32,12 +30,10 @@ def get_chroma_collection():
     return collection
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 2 — Pull all chunks as LangChain Documents (for BM25)
-# ════════════════════════════════════════════════════════════
+# step2:Pull all chunks from Langchain Documents
 def load_chunks_as_documents(collection) -> list:
     print("\nLoading all chunks from ChromaDB...")
-    results   = collection.get(include=["documents", "metadatas"])
+    results = collection.get(include=["documents", "metadatas"])
     documents = []
     for content, meta in zip(results["documents"], results["metadatas"]):
         documents.append(Document(page_content=content, metadata=meta))
@@ -45,28 +41,24 @@ def load_chunks_as_documents(collection) -> list:
     return documents
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 3 — BM25 Retriever (Keyword Search)
-# ════════════════════════════════════════════════════════════
+# step3: Define the keyword search retriever
 def build_bm25_retriever(documents: list) -> BM25Retriever:
     print("\nBuilding BM25 keyword retriever...")
-    bm25          = BM25Retriever.from_documents(documents)
-    bm25.k        = 20
+    bm25 = BM25Retriever.from_documents(documents)
+    bm25.k = 20
     print("BM25 retriever ready")
     return bm25
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 4 — ChromaDB Semantic Retriever
-# ════════════════════════════════════════════════════════════
+# step4: Define the semantic search retriever
 class ChromaRetriever:
     def __init__(self, collection, k: int = 20):
         self.collection = collection
-        self.k          = k
+        self.k = k
         print("ChromaDB semantic retriever ready")
 
     def get_relevant_documents(self, query: str) -> list:
-        results   = self.collection.query(
+        results = self.collection.query(
             query_texts=[query],
             n_results=self.k,
             include=["documents", "metadatas", "distances"]
@@ -77,8 +69,8 @@ class ChromaRetriever:
             results["metadatas"][0],
             results["distances"][0]
         ):
-            similarity              = 1 - distance
-            doc                     = Document(page_content=content, metadata=meta)
+            similarity = 1 - distance
+            doc = Document(page_content=content, metadata=meta)
             doc.metadata["_semantic_score"] = round(similarity, 4)
             documents.append(doc)
         return documents
@@ -89,9 +81,7 @@ def build_semantic_retriever(collection) -> ChromaRetriever:
     return ChromaRetriever(collection, k=20)
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 5 — Catalog Check
-# ════════════════════════════════════════════════════════════
+# step5: Catalog checking
 def is_in_catalog(semantic_results: list) -> bool:
     if not semantic_results:
         return False
@@ -103,25 +93,24 @@ def is_in_catalog(semantic_results: list) -> bool:
     print(f"   Best semantic score: {best_score:.4f} (threshold: {THRESHOLD})")
     return best_score >= THRESHOLD
 
-# ════════════════════════════════════════════════════════════
-# STEP 6 — Weighted Hybrid Merge
-# Semantic 80% + BM25 20%
-# ════════════════════════════════════════════════════════════
+# step6: weighted hybrid merge
+
+
 def weighted_merge(semantic_results: list, bm25_results: list) -> list:
     scores = {}
-    docs   = {}
+    docs = {}
 
-    # Semantic — 80% weight using actual similarity score
+    # Semantic — 80% weight
     for doc in semantic_results:
-        title  = doc.metadata.get("title", "")
-        score  = doc.metadata.get("_semantic_score", 0)
+        title = doc.metadata.get("title", "")
+        score = doc.metadata.get("_semantic_score", 0)
         scores[title] = scores.get(title, 0) + (0.8 * score)
         docs[title]   = doc
 
-    # BM25 — 20% weight using rank position
+    # BM25 — 20% weight
     total = len(bm25_results)
     for rank, doc in enumerate(bm25_results):
-        title      = doc.metadata.get("title", "")
+        title = doc.metadata.get("title", "")
         bm25_score = (total - rank) / total
         scores[title] = scores.get(title, 0) + (0.2 * bm25_score)
         if title not in docs:
@@ -139,11 +128,9 @@ def weighted_merge(semantic_results: list, bm25_results: list) -> list:
     return result
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 7 — Globals + Initialize (run once)
-# ════════════════════════════════════════════════════════════
-_collection         = None
-_bm25_retriever     = None
+# step7: Gloabls+Initialize
+_collection = None
+_bm25_retriever = None
 _semantic_retriever = None
 
 
@@ -151,24 +138,21 @@ def _initialize():
     global _collection, _bm25_retriever, _semantic_retriever
     if _bm25_retriever is not None:
         return
-    _collection         = get_chroma_collection()
-    all_chunks          = load_chunks_as_documents(_collection)
-    _bm25_retriever     = build_bm25_retriever(all_chunks)
+    _collection = get_chroma_collection()
+    all_chunks = load_chunks_as_documents(_collection)
+    _bm25_retriever = build_bm25_retriever(all_chunks)
     _semantic_retriever = build_semantic_retriever(_collection)
 
 
-# ════════════════════════════════════════════════════════════
-# STEP 8 — Main Integration Function
-# Called by chain.py — returns dict with found + results
-# ════════════════════════════════════════════════════════════
+# step8: Main integration function
 def get_top_songs(query: str) -> dict:
     try:
         _initialize()
 
-        print(f"\n🔍 Searching for: '{query}'")
+        print(f"\nSearching for: '{query}'")
 
         semantic_results = _semantic_retriever.get_relevant_documents(query)
-        bm25_results     = _bm25_retriever.invoke(query)
+        bm25_results = _bm25_retriever.invoke(query)
 
         # Always merge and return results regardless of threshold
         combined = weighted_merge(semantic_results, bm25_results)
@@ -183,7 +167,7 @@ def get_top_songs(query: str) -> dict:
             # Last resort — return top semantic results directly
             final = semantic_results[:10]
 
-        print(f"✅ Found {len(final)} songs")
+        print(f"Found {len(final)} songs")
 
         return {
             "found":   True,
@@ -192,17 +176,17 @@ def get_top_songs(query: str) -> dict:
         }
 
     except Exception as e:
-        print(f"❌ Retriever error: {e}")
+        print(f"Retriever error: {e}")
         return {
             "found":   False,
             "message": f"Search error: {str(e)}",
             "results": []
         }
-# ════════════════════════════════════════════════════════════
-# STEP 9 — Verify
-# ════════════════════════════════════════════════════════════
+        
+        
+# step9: Testing
 if __name__ == "__main__":
-    print("🚀 Testing retriever.py...\n")
+    print("Testing retriever.py...\n")
 
     test_queries = [
         "sad songs for a rainy night",
@@ -217,16 +201,16 @@ if __name__ == "__main__":
         response = get_top_songs(query)
 
         if not response["found"]:
-            print(f"\n⚠️  {response['message']}")
+            print(f"\n{response['message']}")
             continue
 
         print(f"\nQuery : '{query}'")
         print(f"Results ({len(response['results'])}):")
         for i, doc in enumerate(response["results"], 1):
-            title  = doc.metadata.get("title",         "Unknown")
+            title = doc.metadata.get("title",         "Unknown")
             artist = doc.metadata.get("artist",        "Unknown")
-            mood   = doc.metadata.get("mood",          "Unknown")
-            score  = doc.metadata.get("_hybrid_score", 0)
+            mood = doc.metadata.get("mood",          "Unknown")
+            score = doc.metadata.get("_hybrid_score", 0)
             print(f"  {i}. {title} — {artist} | {mood} | score: {score}")
 
-    print("\n\n✅ retriever.py verification complete!")
+    print("\n\nretriever.py verification complete!")
