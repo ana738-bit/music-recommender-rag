@@ -1,4 +1,3 @@
-```markdown
 # 🎵 VibeCheck — Music Mood Recommender
 
 > Drop your mood. We drop the playlist. No algorithm. Just pure vibe science. ✨
@@ -11,7 +10,7 @@ A RAG (Retrieval Augmented Generation) powered music recommender system that rec
 
 Most music apps recommend songs based on what you've listened to before. VibeCheck is different — you describe how you **feel**, and it finds songs that match that feeling.
 
-**You type:** *"songs for a rainy night when you can't sleep"*
+**You type:** *"songs for a rainy night when you can't sleep"*  
 **VibeCheck does:**
 1. Rewrites your query into a rich semantic description
 2. Searches 120 songs using hybrid BM25 + semantic search
@@ -31,7 +30,7 @@ Query Rewriter (Groq LLM)
     │
     ▼
 Hybrid Retrieval
-    ├── BM25 Keyword Search     (20 candidates)
+    ├── BM25 Keyword Search      (20 candidates)
     └── ChromaDB Semantic Search (20 candidates)
     │
     ▼
@@ -248,14 +247,5 @@ Built as a Semester 4 project at MAKAUT. We wanted to build something that used 
 
 ---
 
-*Made with ☕ + 🎧 + way too many late nights by Ananya & Rajdeep*
-*Data Science Students · MAKAUT · Semester 4 · 2025*
-```
-
-Paste this directly into your `README.md` file and commit:
-
-```bash
-git add README.md
-git commit -m "docs: add complete project README with architecture and setup guide"
-git push origin rajdeep
-```
+*Made with ☕ + 🎧 + way too many late nights by Ananya & Rajdeep*  
+*Data Science Students · 2026*
