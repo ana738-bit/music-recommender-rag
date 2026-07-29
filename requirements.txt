@@ -16,3 +16,6 @@ syncedlyrics
 langchain-text-splitters
 langchain-classic
 rank-bm25
+fastapi
+uvicorn
+requests
