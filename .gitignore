@@ -4,3 +4,4 @@ venv/
 *.pyc
 .ipynb_checkpoints/
 nmusic_db/
+music_db/
