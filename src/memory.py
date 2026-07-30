@@ -1,43 +1,28 @@
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env 
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 
-# Simple Memory Class 
+# ─── Conversation Memory Class ────────────────────────────
 class ConversationMemory:
-    """
-    Simple conversation memory that stores
-    last k exchanges between user and DJ.
-    Does not depend on any LangChain memory class
-    to avoid deprecation issues.
-    """
-
     def __init__(self, k: int = 5):
-        self.k        = k
-        self.history  = []   # list of {"user": ..., "dj": ...}
+        self.k = k
+        self.history = []
 
     def save(self, user_query: str, ai_response: str):
-        """Save one exchange to memory."""
         self.history.append({
             "user": user_query,
             "dj":   ai_response
         })
-        # Keep only last k exchanges
         if len(self.history) > self.k:
             self.history = self.history[-self.k:]
-        print(f" Memory saved ({len(self.history)}/{self.k} exchanges)")
+        print(f"Memory saved ({len(self.history)}/{self.k} exchanges)")
 
     def format(self) -> str:
-        """
-        Format history as clean string for prompt injection.
-        Called by chain.py before building the prompt.
-        """
         if not self.history:
             return "No previous conversation."
-
         lines = []
         for exchange in self.history:
             lines.append(f"User: {exchange['user']}")
@@ -45,79 +30,70 @@ class ConversationMemory:
         return "\n".join(lines)
 
     def clear(self):
-        """Clear all conversation history."""
         self.history = []
-        print(" Memory cleared")
+        print("Memory cleared")
 
     def is_empty(self) -> bool:
         return len(self.history) == 0
 
 
-# Global Memory Instance
-# Single instance used across the whole app session
-_memory_instance = None
+# ─── Session-based Memory Store ───────────────────────────
+_memory_store: dict = {}
 
 
-def get_memory() -> ConversationMemory:
+def get_memory(session_id: str = "default") -> ConversationMemory:
     """
-    Returns the global memory instance.
-    Creates it if it doesn't exist yet.
-    Called by chain.py and app.py.
+    Returns memory instance for the given session_id.
+    Creates a new one if it doesn't exist yet.
+    Called by chain.py with session_id from app.py.
     """
-    global _memory_instance
-    if _memory_instance is None:
-        _memory_instance = ConversationMemory(k=5)
-        print(" Memory initialized")
-    return _memory_instance
+    global _memory_store
+    if session_id not in _memory_store:
+        _memory_store[session_id] = ConversationMemory(k=5)
+        print(f"New memory created for session: {session_id}")
+    return _memory_store[session_id]
 
 
-def reset_memory():
-    """Resets the global memory instance."""
-    global _memory_instance
-    _memory_instance = ConversationMemory(k=5)
-    print(" Memory reset")
+def reset_memory(session_id: str = "default"):
+    """
+    Resets memory for a specific session only.
+    Called by /clear-memory endpoint in backend/main.py.
+    """
+    global _memory_store
+    if session_id in _memory_store:
+        _memory_store[session_id].clear()
+        print(f"Memory reset for session: {session_id}")
+    else:
+        print(f"⚠️ No memory found for session: {session_id}")
 
 
-# Test 
+def get_all_sessions() -> list:
+    """Returns list of all active session IDs. For debugging."""
+    return list(_memory_store.keys())
+
+
+# ─── Test ─────────────────────────────────────────────────
 if __name__ == "__main__":
-    print(" Testing memory.py...\n")
+    print("Testing session-based memory...\n")
 
-    mem = get_memory()
+    # Test separate sessions
+    mem_a = get_memory("user_alice")
+    mem_b = get_memory("user_bob")
 
-    # Test save
-    print(" Testing save()...")
-    mem.save(
-        "sad songs for rainy night",
-        "Here are some melancholic songs: Cigarette Daydreams, Rainy Day Loop..."
-    )
-    mem.save(
-        "more upbeat please",
-        "Switching the vibe! Here are energetic songs: Dance The Night, Boom Boom Pow..."
-    )
-    print(" save() works\n")
+    mem_a.save("sad songs", "Here are melancholic songs...")
+    mem_b.save("party songs", "Here are upbeat songs...")
 
-    # Test format
-    print(" Testing format()...")
-    history = mem.format()
-    print(history)
-    print("\n format() works\n")
+    print("Alice's memory:")
+    print(mem_a.format())
+    print("\nBob's memory:")
+    print(mem_b.format())
 
-    # Test is_empty
-    print(" Testing is_empty()...")
-    print(f"Is empty: {mem.is_empty()}")
-    print(" is_empty() works\n")
+    # Verify they are isolated
+    assert "party" not in mem_a.format()
+    assert "sad" not in mem_b.format()
+    print("\n Sessions are isolated correctly")
 
-    # Test clear
-    print(" Testing clear()...")
-    mem.clear()
-    print(f"After clear: {mem.format()}")
-    print(" clear() works\n")
-
-    # Test k limit
-    print(" Testing k=5 limit...")
-    for i in range(7):
-        mem.save(f"query {i}", f"response {i}")
-    print(f"History length after 7 saves: {len(mem.history)} (should be 5)")
-    print(" k limit works\n")
-
-    print(" memory.py complete!")
+    # Test reset
+    reset_memory("user_alice")
+    print(f"\nAlice after reset: {mem_a.format()}")
+    print("\n memory.py complete!")
