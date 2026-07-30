@@ -1,17 +1,72 @@
 import sys
+import requests
 import streamlit as st
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent / "src"))
+# ── Backend URL ──────────────────────────────────────────
+try:
+    BACKEND_URL = st.secrets["BACKEND_URL"]
+except Exception:
+    BACKEND_URL = "http://localhost:8000"
 
-from chain import run_pipeline
-from memory import get_memory, reset_memory
+
+# ── Helper Functions ─────────────────────────────────────
+def call_recommend(query: str) -> dict:
+    """Call FastAPI backend /recommend endpoint."""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/recommend",
+            json={"query": query},
+            timeout=60
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.ConnectionError:
+        return {
+            "found": False,
+            "message": "Backend is starting up... please try again in 30 seconds.",
+            "query": query,
+            "rewritten_query": query,
+            "recommendations": [],
+            "raw_llm_response": ""
+        }
+    except requests.exceptions.Timeout:
+        return {
+            "found": False,
+            "message": "Request timed out. The backend might be waking up — try again!",
+            "query": query,
+            "rewritten_query": query,
+            "recommendations": [],
+            "raw_llm_response": ""
+        }
+    except Exception as e:
+        return {
+            "found": False,
+            "message": f"Something went wrong: {str(e)}",
+            "query": query,
+            "rewritten_query": query,
+            "recommendations": [],
+            "raw_llm_response": ""
+        }
+
+
+def call_clear_memory() -> bool:
+    """Call FastAPI backend /clear-memory endpoint."""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/clear-memory",
+            timeout=10
+        )
+        return response.status_code == 200
+    except Exception:
+        return False
+
 
 # ════════════════════════════════════════════════════════════
 # PAGE CONFIG
 # ════════════════════════════════════════════════════════════
 st.set_page_config(
-    page_title=" VibeCheck — Music Mood Recommender",
+    page_title="🎵 VibeCheck — Music Mood Recommender",
     page_icon="🎵",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -24,43 +79,22 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 
-    /* ── Global ── */
     .stApp {
         background-color: #f8f9ff;
         color: #111111;
         font-family: 'Space Grotesk', sans-serif;
     }
-
-    /* ── Hide default streamlit chrome ── */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    /* ── Navigation tabs ── */
     .nav-container {
         display: flex;
         gap: 12px;
         justify-content: center;
         margin: 20px 0 30px 0;
     }
-    .nav-btn {
-        background: #ffffff;
-        border: 2px solid #2563eb;
-        color: #2563eb;
-        padding: 8px 28px;
-        border-radius: 30px;
-        font-weight: 600;
-        font-size: 15px;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-decoration: none;
-    }
-    .nav-btn:hover, .nav-btn.active {
-        background: #2563eb;
-        color: #ffffff;
-    }
 
-    /* ── Hero section ── */
     .hero {
         text-align: center;
         padding: 50px 20px 30px 20px;
@@ -95,7 +129,6 @@ st.markdown("""
         margin: 4px;
     }
 
-    /* ── Mood chips ── */
     .stButton > button {
         background: #ffffff !important;
         color: #2563eb !important;
@@ -114,7 +147,6 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3) !important;
     }
 
-    /* ── Search bar ── */
     .stTextInput > div > div > input {
         background: #ffffff;
         color: #111111;
@@ -130,7 +162,6 @@ st.markdown("""
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
     }
 
-    /* ── Section headers ── */
     .section-header {
         font-size: 1.1rem;
         font-weight: 700;
@@ -141,7 +172,6 @@ st.markdown("""
         gap: 8px;
     }
 
-    /* ── Song card ── */
     .song-card {
         background: #ffffff;
         border-radius: 20px;
@@ -194,7 +224,6 @@ st.markdown("""
         padding-left: 12px;
     }
 
-    /* ── Chat bubbles ── */
     .bubble-wrap { overflow: hidden; margin: 8px 0; }
     .user-bubble {
         background: linear-gradient(135deg, #2563eb, #7c3aed);
@@ -218,7 +247,6 @@ st.markdown("""
         border: 1px solid #e2e8f0;
     }
 
-    /* ── Playlist header ── */
     .playlist-header {
         background: linear-gradient(135deg, #eff6ff, #f5f3ff);
         border-radius: 16px;
@@ -237,7 +265,6 @@ st.markdown("""
         font-size: 0.9rem;
     }
 
-    /* ── Error box ── */
     .error-box {
         background: #fff5f5;
         border: 1px solid #feb2b2;
@@ -247,7 +274,6 @@ st.markdown("""
         color: #c53030;
     }
 
-    /* ── About page ── */
     .about-hero {
         background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
         border-radius: 24px;
@@ -286,27 +312,10 @@ st.markdown("""
         transform: translateY(-5px);
         box-shadow: 0 12px 35px rgba(37, 99, 235, 0.15);
     }
-    .team-avatar {
-        font-size: 4rem;
-        margin-bottom: 16px;
-    }
-    .team-name {
-        font-size: 1.3rem;
-        font-weight: 700;
-        color: #1e40af;
-        margin-bottom: 6px;
-    }
-    .team-role {
-        color: #7c3aed;
-        font-weight: 600;
-        font-size: 0.9rem;
-        margin-bottom: 12px;
-    }
-    .team-desc {
-        color: #64748b;
-        font-size: 0.88rem;
-        line-height: 1.6;
-    }
+    .team-avatar { font-size: 4rem; margin-bottom: 16px; }
+    .team-name { font-size: 1.3rem; font-weight: 700; color: #1e40af; margin-bottom: 6px; }
+    .team-role { color: #7c3aed; font-weight: 600; font-size: 0.9rem; margin-bottom: 12px; }
+    .team-desc { color: #64748b; font-size: 0.88rem; line-height: 1.6; }
 
     .fun-fact {
         background: #ffffff;
@@ -316,17 +325,8 @@ st.markdown("""
         margin: 10px 0;
         box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06);
     }
-    .fun-fact h4 {
-        color: #1e40af;
-        margin: 0 0 6px 0;
-        font-size: 1rem;
-    }
-    .fun-fact p {
-        color: #374151;
-        margin: 0;
-        font-size: 0.9rem;
-        line-height: 1.5;
-    }
+    .fun-fact h4 { color: #1e40af; margin: 0 0 6px 0; font-size: 1rem; }
+    .fun-fact p { color: #374151; margin: 0; font-size: 0.9rem; line-height: 1.5; }
 
     .tech-pill {
         display: inline-block;
@@ -339,19 +339,12 @@ st.markdown("""
         font-weight: 500;
         margin: 4px;
     }
-
     .divider-fancy {
         text-align: center;
         color: #94a3b8;
         font-size: 1.2rem;
         margin: 30px 0;
         letter-spacing: 8px;
-    }
-
-    /* ── Sidebar ── */
-    .css-1d391kg, [data-testid="stSidebar"] {
-        background: #f8faff;
-        border-right: 1px solid #dbeafe;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -377,8 +370,10 @@ with col_nav2:
         st.session_state.page = "home"
         st.rerun()
 with col_nav3:
-    st.markdown("<div style='padding:8px 0; text-align:center; color:#94a3b8;'>|</div>",
-                unsafe_allow_html=True)
+    st.markdown(
+        "<div style='padding:8px 0; text-align:center; color:#94a3b8;'>|</div>",
+        unsafe_allow_html=True
+    )
 with col_nav4:
     if st.button("👥 About Us", key="nav_about"):
         st.session_state.page = "about"
@@ -390,7 +385,6 @@ with col_nav4:
 # ════════════════════════════════════════════════════════════
 if st.session_state.page == "home":
 
-    # ── Hero ──
     st.markdown("""
     <div class="hero">
         <h1>🎵 VibeCheck</h1>
@@ -404,23 +398,22 @@ if st.session_state.page == "home":
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Mood Chips ──
     st.markdown(
         '<div class="section-header">🎭 Pick your current vibe</div>',
         unsafe_allow_html=True
     )
 
     mood_chips = {
-        "😢 Sad":         "sad heartbreak melancholic songs",
-        "😊 Happy":       "happy upbeat feel good pop hits",
-        "💪 Workout":     "motivational energetic workout songs",
-        "🌧️ Rainy Day":  "rainy day chill melancholic music",
-        "❤️ Romantic":    "romantic love songs",
-        "🌙 Late Night":  "late night drive nostalgic songs",
-        "😤 Angry":       "angry breakup energetic songs",
-        "📚 Focus":       "focus study calm ambient music",
-        "🎉 Party":       "party dance hits happy upbeat",
-        "🎸 Indie":       "indie alternative rock nostalgic"
+        "😢 Sad":        "sad heartbreak melancholic songs",
+        "😊 Happy":      "happy upbeat feel good pop hits",
+        "💪 Workout":    "motivational energetic workout songs",
+        "🌧️ Rainy Day": "rainy day chill melancholic music",
+        "❤️ Romantic":   "romantic love songs",
+        "🌙 Late Night": "late night drive nostalgic songs",
+        "😤 Angry":      "angry breakup energetic songs",
+        "📚 Focus":      "focus study calm ambient music",
+        "🎉 Party":      "party dance hits happy upbeat",
+        "🎸 Indie":      "indie alternative rock nostalgic"
     }
 
     chip_query = None
@@ -432,7 +425,6 @@ if st.session_state.page == "home":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Search Bar ──
     st.markdown(
         '<div class="section-header">✍️ Or tell us exactly how you feel</div>',
         unsafe_allow_html=True
@@ -456,13 +448,11 @@ if st.session_state.page == "home":
     elif search_clicked and user_input.strip():
         final_query = user_input.strip()
 
-    if "suggested_query" in st.session_state:
-        final_query = st.session_state.pop("suggested_query")
-
-    # ── Run Pipeline ──
+    # ── Call Backend ──
     if final_query:
         with st.spinner("🎵 Scanning the vibes... hang tight!"):
-            result = run_pipeline(final_query)
+            result = call_recommend(final_query)
+
         st.session_state.pipeline_result = result
 
         if result["found"]:
@@ -501,7 +491,6 @@ if st.session_state.page == "home":
         )
 
     # ── Results ──
-    # ── Results ──
     if st.session_state.pipeline_result:
         result = st.session_state.pipeline_result
 
@@ -510,27 +499,11 @@ if st.session_state.page == "home":
             <div class="error-box">
                 <h3>😕 Hmm, nothing matched that vibe</h3>
                 <p>{result['message']}</p>
+                <p style="font-size:0.85rem; margin-top:8px;">
+                    Try something like "sad songs" or "party hits"
+                </p>
             </div>
             """, unsafe_allow_html=True)
-
-            # ← YOUR ADDITION — Smart fallback suggestions (Feature 4)
-            st.markdown(
-                '<div class="section-header">💡 Try one of these instead</div>',
-                unsafe_allow_html=True
-            )
-            suggestions = [
-                "sad heartbreak songs",
-                "upbeat happy songs",
-                "calm study music",
-                "late night drive",
-                "angry breakup songs"
-            ]
-            s_cols = st.columns(len(suggestions))
-            for i, suggestion in enumerate(suggestions):
-                with s_cols[i]:
-                    if st.button(suggestion, key=f"suggest_{i}"):
-                        st.session_state["suggested_query"] = suggestion
-                        st.rerun()
 
         else:
             recs = result["recommendations"]
@@ -544,25 +517,6 @@ if st.session_state.page == "home":
                 </p>
             </div>
             """, unsafe_allow_html=True)
-
-            # ← YOUR ADDITION — Analytics metrics (Feature 5)
-            col_s1, col_s2, col_s3, col_s4 = st.columns(4)
-            with col_s1:
-                st.metric("🎵 Songs Searched", "120")
-            with col_s2:
-                st.metric("🧩 Chunks Indexed", "441")
-            with col_s3:
-                st.metric("🔍 Retrieved", "10")
-            with col_s4:
-                st.metric("🎯 Final Picks", len(recs))
-
-            # ← YOUR ADDITION — Rewrite toggle (Feature 6)
-            show_rewrite = st.toggle("🔄 Show how AI interpreted your query")
-            if show_rewrite and result.get("rewritten_query"):
-                st.info(
-                    f"**AI interpreted your mood as:** "
-                    f"_{result['rewritten_query']}_"
-                )
 
             for i, song in enumerate(recs):
                 col_img, col_info = st.columns([1, 3])
@@ -601,41 +555,11 @@ if st.session_state.page == "home":
                             f"https://open.spotify.com/embed/track/"
                             f"{track_id}?utm_source=generator&theme=0"
                         )
-                        st.iframe(embed_url, height=80)
+                        st.components.v1.iframe(embed_url, height=80)
                     else:
                         st.caption("⚠️ No preview available")
 
-                    hybrid_score = song.get("hybrid_score", None)
-                    rerank_rank  = song.get("rerank_rank", i + 1)
-                    energy       = song.get("energy", "")
-                    if hybrid_score:
-                        st.markdown(
-                            f"<div style='font-size:11px; color:#94a3b8; "
-                            f"margin-top:4px;'>"
-                            f"📊 Hybrid Score: {hybrid_score:.3f} &nbsp;•&nbsp; "
-                            f"⚡ Energy: {energy} &nbsp;•&nbsp; "
-                            f"🏆 Rerank: #{rerank_rank}</div>",
-                            unsafe_allow_html=True
-                        )
-
                 st.markdown("<br>", unsafe_allow_html=True)
-
-            # RAG Debug Panel
-            with st.expander("🔍 How the RAG Pipeline Found These Songs"):
-                st.markdown("""
-                **Pipeline executed in 8 steps:**
-
-                1. ✅ Query rewritten into semantic description
-                2. ✅ BM25 keyword search → 20 candidates
-                3. ✅ ChromaDB semantic search → 20 candidates
-                4. ✅ Hybrid merge (80% semantic + 20% BM25)
-                5. ✅ Top 10 passed to LLM reranker
-                6. ✅ Groq reranker selected top 3
-                7. ✅ Context + memory injected into prompt
-                8. ✅ Groq LLM generated personalized explanations
-                """)
-                st.markdown("**Raw LLM Output:**")
-                st.code(result.get("raw_llm_response", ""), language="json")
 
     # ── Sidebar ──
     with st.sidebar:
@@ -643,7 +567,7 @@ if st.session_state.page == "home":
         if st.button("🗑️ Clear History", use_container_width=True):
             st.session_state.chat_history = []
             st.session_state.pipeline_result = None
-            reset_memory()
+            call_clear_memory()
             st.success("Vibes cleared!")
             st.rerun()
 
@@ -656,22 +580,16 @@ if st.session_state.page == "home":
                 st.markdown(f"**Last vibe:** {r['query']}")
                 st.markdown(f"**Songs found:** {len(r['recommendations'])}")
 
-        # Memory timeline
         st.markdown("---")
-        st.markdown("### 🧠 Conversation Memory")
-        memory = get_memory()
-        if memory.is_empty():
-            st.caption("No memory yet — start searching!")
-        else:
-            for idx, exchange in enumerate(memory.history, 1):
-                st.markdown(
-                    f"<div style='background:#eff6ff; border-radius:10px; "
-                    f"padding:8px 12px; margin:6px 0; font-size:0.8rem; "
-                    f"border-left:3px solid #2563eb;'>"
-                    f"<b>Turn {idx}:</b> {exchange['user'][:40]}..."
-                    f"</div>",
-                    unsafe_allow_html=True
-                )
+        st.markdown("### 🔌 Backend Status")
+        try:
+            health = requests.get(f"{BACKEND_URL}/health", timeout=5)
+            if health.status_code == 200:
+                st.success("✅ Backend Online")
+            else:
+                st.warning("⚠️ Backend responding but unhealthy")
+        except Exception:
+            st.error("❌ Backend Offline")
 
 
 # ════════════════════════════════════════════════════════════
@@ -679,7 +597,6 @@ if st.session_state.page == "home":
 # ════════════════════════════════════════════════════════════
 elif st.session_state.page == "about":
 
-    # ── About Hero ──
     st.markdown("""
     <div class="about-hero">
         <h1>👋 Hey, we're VibeCheck!</h1>
@@ -696,6 +613,7 @@ elif st.session_state.page == "about":
         <span class="tech-pill">🤖 Groq LLM</span>
         <span class="tech-pill">🎵 Spotify API</span>
         <span class="tech-pill">🌀 Streamlit</span>
+        <span class="tech-pill">⚡ FastAPI</span>
         <span class="tech-pill">📊 RAG Pipeline</span>
     </div>
     """, unsafe_allow_html=True)
@@ -705,7 +623,6 @@ elif st.session_state.page == "about":
         unsafe_allow_html=True
     )
 
-    # ── Team Cards ──
     st.markdown(
         "<h2 style='text-align:center; color:#1e40af; margin-bottom:24px;'>"
         "🧑‍💻 The Masterminds Behind the Madness</h2>",
@@ -719,18 +636,14 @@ elif st.session_state.page == "about":
         <div class="team-card">
             <div class="team-avatar">👩‍💻</div>
             <div class="team-name">Ananya Manna</div>
-            <div class="team-role">
-                Data Science Noob · Stage 1 & 3 Architect
-            </div>
+            <div class="team-role">Data Scientist · Stage 1 & 3 Architect</div>
             <div class="team-desc">
-                Built the complete data ingestion pipeline — collecting
-                120 songs across Spotify and syncedlyrics, cleaning
-                lyrics, and assembling rich RAG documents. Designed
-                the ChromaDB indexing strategy with 441 chunks and
-                engineered the prompt templates and conversation memory
-                system that powers every recommendation you see.<br><br>
-                <b>Guilty pleasure:</b> Lo-fi beats at 2am while
-                "studying" 🎧<br>
+                The one who spent 3 hours debugging a Genius API token
+                only to discover it was expired. Built the entire data
+                pipeline, prompt engineering system, and this gorgeous UI
+                you're looking at right now.<br><br>
+                <b>Superpower:</b> Making APIs work through sheer stubbornness 💪<br>
+                <b>Guilty pleasure:</b> Lo-fi beats at 2am while "studying" 🎧<br>
                 <b>Mood RN:</b> Caffeinated and dangerous ☕
             </div>
         </div>
@@ -740,20 +653,15 @@ elif st.session_state.page == "about":
         st.markdown("""
         <div class="team-card">
             <div class="team-avatar">👨‍💻</div>
-            <div class="team-name">Rajdeep Bose</div>
-            <div class="team-role">
-                Data Science Noob · Stage 2 & 4 Architect
-            </div>
+            <div class="team-name">Rajdeep</div>
+            <div class="team-role">Data Scientist · Stage 2 & 4 Architect</div>
             <div class="team-desc">
-                Built the complete retrieval pipeline — hybrid search
-                combining BM25 keyword matching and ChromaDB semantic
-                search, fused using weighted scoring. Designed the
-                LLM-based reranker using Groq, structured output
-                parsing with Pydantic, and the RAG chain that
-                orchestrates all 8 pipeline stages from query to
-                final recommendation.<br><br>
-                <b>Guilty pleasure:</b> Hip-hop at full volume while
-                coding 🎤<br>
+                The retrieval wizard who made BM25 and semantic search
+                shake hands and get along. Built the hybrid search engine,
+                LLM reranker, and the RAG chain that ties everything
+                together like duct tape on a spaceship.<br><br>
+                <b>Superpower:</b> Making vectors do exactly what he wants 🧲<br>
+                <b>Guilty pleasure:</b> Hip-hop at full volume while coding 🎤<br>
                 <b>Mood RN:</b> Quietly plotting world domination 🌍
             </div>
         </div>
@@ -764,7 +672,6 @@ elif st.session_state.page == "about":
         unsafe_allow_html=True
     )
 
-    # ── What is VibeCheck ──
     st.markdown(
         "<h2 style='text-align:center; color:#1e40af; margin-bottom:24px;'>"
         "🎵 What Even Is VibeCheck?</h2>",
@@ -777,28 +684,19 @@ elif st.session_state.page == "about":
         st.markdown("""
         <div class="fun-fact">
             <h4>🧠 The Big Brain Idea</h4>
-            <p>
-                VibeCheck is a RAG (Retrieval Augmented Generation)
-                powered music recommender. You tell it your mood,
-                it searches through 120 carefully curated songs using
-                a hybrid of keyword + semantic search, reranks them
-                with an LLM, and serves you a playlist that actually
-                matches your soul. No random shuffle. Pure vibe science.
-            </p>
+            <p>VibeCheck is a RAG powered music recommender. You tell it
+            your mood, it searches 120 songs using hybrid keyword + semantic
+            search, reranks with an LLM, and serves a playlist that actually
+            matches your soul. No random shuffle. Pure vibe science.</p>
         </div>
         """, unsafe_allow_html=True)
 
         st.markdown("""
         <div class="fun-fact">
             <h4>🔍 How It Actually Works</h4>
-            <p>
-                Your query → Query Rewriter (LLM expands it) →
-                Hybrid Search (BM25 + ChromaDB vectors) →
-                LLM Reranker (Groq picks the best) →
-                Prompt Builder (injects context + memory) →
-                Groq LLM generates recommendations →
-                Structured output with reasons → You vibe. 🎉
-            </p>
+            <p>Query → Rewriter → Hybrid Search (BM25 + ChromaDB) →
+            LLM Reranker (Groq) → Prompt Builder → Groq LLM →
+            Structured Output → FastAPI → Streamlit UI → You vibe. 🎉</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -808,11 +706,12 @@ elif st.session_state.page == "about":
             <h4>📊 By The Numbers</h4>
             <p>
                 🎵 <b>120 songs</b> in the catalog<br>
-                🧩 <b>455 chunks</b> stored in ChromaDB<br>
+                🧩 <b>441 chunks</b> stored in ChromaDB<br>
                 🎭 <b>15 mood categories</b> covered<br>
-                🤖 <b>2 LLM calls</b> per query (rerank + generate)<br>
+                🤖 <b>2 LLM calls</b> per query<br>
                 💾 <b>5 exchange</b> conversation memory<br>
-                ⚡ <b>~8 seconds</b> average response time
+                ⚡ FastAPI backend on Render.com<br>
+                🌐 Streamlit frontend on Streamlit Cloud
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -820,15 +719,11 @@ elif st.session_state.page == "about":
         st.markdown("""
         <div class="fun-fact">
             <h4>💡 Why We Built This</h4>
-            <p>
-                Semester 4, MAKAUT. We needed a project that was
-                actually cool and not just another CRUD app.
-                We wanted real RAG, real LLMs, real APIs —
-                the whole shebang. Also we genuinely wanted
-                something that could help us pick songs during
-                exam season without losing 20 minutes of
-                precious study time. Priorities. 📚🎵
-            </p>
+            <p>Semester 4, MAKAUT. We needed a project that was actually
+            cool and not just another CRUD app. Real RAG, real LLMs,
+            real APIs — the whole shebang. Also we genuinely wanted
+            something to pick songs during exam season without losing
+            20 minutes of study time. Priorities. 📚🎵</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -837,7 +732,6 @@ elif st.session_state.page == "about":
         unsafe_allow_html=True
     )
 
-    # ── Message to Users ──
     st.markdown("""
     <div style="
         background: linear-gradient(135deg, #eff6ff, #f5f3ff);
@@ -853,20 +747,16 @@ elif st.session_state.page == "about":
         <p style="color:#374151; font-size:1.05rem;
                   max-width:600px; margin:0 auto; line-height:1.8;">
             Life's too short for bad playlists and random shuffles
-            that somehow always pick the wrong song at the wrong time.
-            <br><br>
+            that somehow always pick the wrong song at the wrong time.<br><br>
             We built VibeCheck to be your personal mood DJ —
-            one that actually <i>gets</i> you. Whether you're
-            heartbroken at midnight, pumped for the gym, or just
-            need something to match the rain outside your window,
-            we've got you covered. 🌧️
-            <br><br>
+            one that actually <i>gets</i> you. Whether you're heartbroken
+            at midnight, pumped for the gym, or just need something to
+            match the rain outside your window, we've got you covered. 🌧️<br><br>
             <b>Now stop overthinking and go check your vibe. 🎵</b>
         </p>
         <br>
         <p style="color:#7c3aed; font-weight:600;">
-            Made with ☕ + 🎧 + way too many late nights by
-            Ananya & Rajdeep
+            Made with ☕ + 🎧 + way too many late nights by Ananya & Rajdeep
         </p>
         <p style="color:#94a3b8; font-size:0.85rem;">
             Data Science Students · MAKAUT · Semester 4 · 2025
