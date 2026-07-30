@@ -1,8 +1,5 @@
 .env
-music_db/
 __pycache__/
+venv/
 *.pyc
 .ipynb_checkpoints/
-data/songs_catalog.jsonvenv/
-venv/
-.cache
