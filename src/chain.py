@@ -54,7 +54,7 @@ def rewrite_query(query: str) -> str:
 
 
 # Step3: Main pipeline rub
-def run_pipeline(query: str, use_memory: bool = True, use_rewrite: bool = True) -> dict:
+def run_pipeline(query: str, session_id: str = "default", use_memory: bool = True, use_rewrite: bool = True) -> dict:
     """
     Full RAG pipeline:
     query → rewrite → retrieve → rerank → context → memory →
@@ -125,7 +125,7 @@ def run_pipeline(query: str, use_memory: bool = True, use_rewrite: bool = True) 
 
     # Step 5: Get Memory
     print("\n[5/8] Loading conversation memory...")
-    memory = get_memory()
+    memory = get_memory(session_id)
     history = memory.format() if use_memory else "No previous conversation."
     print(f"   History: {history[:80]}...")
 
@@ -141,7 +141,7 @@ def run_pipeline(query: str, use_memory: bool = True, use_rewrite: bool = True) 
         raw_text = llm_response.content
         print(f"   LLM response: {raw_text.strip()[:80]}...")
     except Exception as e:
-        print(f"❌ LLM call failed: {e}")
+        print(f"LLM call failed: {e}")
         return {
             "found":           False,
             "message":         f"LLM generation failed: {str(e)}",
