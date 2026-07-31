@@ -197,7 +197,7 @@ python src/ingest.py
 streamlit run app.py
 ```
 
-Open http://localhost:8501 in your browser.
+Open https://music-recommender-rag-upiqnamrewtfmzuiyhay4d.streamlit.app/ in your browser.
 
 ---
 
